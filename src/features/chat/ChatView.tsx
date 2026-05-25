@@ -366,6 +366,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
     });
     setTimeout(() => scrollToBottom(), 50);
     const socket = getSocket();
+    socket.emit(realtimeEvents.messageSend, { conversationId, body, clientMessageId });
     socket.emit(realtimeEvents.typingStop, { conversationId });
   }
 
