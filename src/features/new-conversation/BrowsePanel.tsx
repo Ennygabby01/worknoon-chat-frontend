@@ -1,14 +1,12 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { createConversation } from "@/lib/api/conversations";
-import { MOCK_MODE, MOCK_USERS } from "@/lib/mock";
+import { listChatContacts } from "@/lib/api/users";
 import { usePresence } from "@/lib/realtime/online-status-context";
-import { useSession } from "@/lib/session/session-context";
-import type { UserRole } from "@/types/api";
 import type { ApiUser } from "@/types/api";
 
 type BrowsePanelProps = {
@@ -64,13 +62,15 @@ function BrowseRow({
 
 export function BrowsePanel({ role, onClose }: BrowsePanelProps) {
   const router = useRouter();
-  const { session } = useSession();
   const [startingUserId, setStartingUserId] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [contacts, setContacts] = useState<ApiUser[]>([]);
 
-  const contacts: ApiUser[] = MOCK_MODE
-    ? MOCK_USERS.filter((u) => u.role === (role as UserRole))
-    : [];
+  useEffect(() => {
+    listChatContacts({ role, limit: 50 })
+      .then(({ users }) => setContacts(users))
+      .catch(() => setError("We could not load contacts. Please try again."));
+  }, [role]);
 
   async function handleStart(user: ApiUser) {
     setStartingUserId(user.id);
@@ -79,7 +79,7 @@ export function BrowsePanel({ role, onClose }: BrowsePanelProps) {
       const conversation = await createConversation({
         participantIds: [user.id],
         type: "direct",
-      }, session!.user.id);
+      });
       onClose();
       router.push(`/inbox/${conversation.id}`);
     } catch {

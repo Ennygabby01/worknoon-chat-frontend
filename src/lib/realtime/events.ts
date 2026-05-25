@@ -4,6 +4,7 @@ export const realtimeEvents = {
   conversationJoin: "conversation:join",
   conversationLeave: "conversation:leave",
   conversationJoined: "conversation:joined",
+  conversationNew: "conversation:new",
   messageSend: "message:send",
   messageNew: "message:new",
   messageSent: "message:sent",

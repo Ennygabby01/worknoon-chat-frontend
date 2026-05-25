@@ -1,23 +1,51 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { ConversationList } from "@/features/inbox/ConversationList";
 import { NewConversationDrawer, type ConversationEntry } from "@/features/new-conversation/NewConversationDrawer";
 import { SupportBotView } from "@/features/support-bot/SupportBotView";
 import { BrowsePanel } from "@/features/new-conversation/BrowsePanel";
+import { useSession } from "@/lib/session/session-context";
+import type { ConversationFilter, ConversationSort } from "@/features/inbox/ConversationList";
+
+const PRIVILEGED_FILTERS: ConversationFilter[] = ["all", "open", "escalated", "assigned", "resolved"];
+const BASIC_FILTERS: ConversationFilter[] = ["all", "open", "resolved"];
+
+const FILTER_LABELS: Record<ConversationFilter, string> = {
+  all: "All",
+  open: "Open",
+  escalated: "Escalated",
+  assigned: "Assigned",
+  resolved: "Resolved",
+};
 
 export default function InboxLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const { session } = useSession();
   const [search, setSearch] = useState("");
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [activeEntry, setActiveEntry] = useState<ConversationEntry | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sort, setSort] = useState<ConversationSort>("newest");
+  const [filter, setFilter] = useState<ConversationFilter>("all");
+  const filterRef = useRef<HTMLDivElement>(null);
 
+  const role = session?.user.role;
+  const filterOptions = (role === "admin" || role === "agent") ? PRIVILEGED_FILTERS : BASIC_FILTERS;
+
+  const effectiveFilter = filterOptions.includes(filter) ? filter : "all";
   const hasActiveChat = pathname !== "/inbox" || activeEntry !== null;
 
   useEffect(() => {
-    if (pathname !== "/inbox") setActiveEntry(null);
-  }, [pathname]);
+    function handleClick(e: MouseEvent) {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setFilterOpen(false);
+      }
+    }
+    if (filterOpen) document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [filterOpen]);
 
   function handleSelect(entry: ConversationEntry) {
     setActiveEntry(entry);
@@ -45,14 +73,49 @@ export default function InboxLayout({ children }: { children: React.ReactNode })
               onChange={(e) => setSearch(e.target.value)}
               aria-label="Search conversations"
             />
-            <button className="inbox-filter-btn" type="button" aria-label="Filter conversations">
-              <FilterIcon />
-            </button>
+            <div className="inbox-filter-wrap" ref={filterRef}>
+              <button
+                className={`inbox-filter-btn${filterOpen ? " is-active" : ""}${filter !== "all" ? " has-filter" : ""}`}
+                type="button"
+                aria-label="Filter conversations"
+                aria-expanded={filterOpen}
+                onClick={() => setFilterOpen((v) => !v)}
+              >
+                <FilterIcon />
+              </button>
+              {filterOpen && (
+                <div className="inbox-filter-dropdown">
+                  <p className="inbox-filter-group-label">Sort</p>
+                  {(["newest", "oldest"] as ConversationSort[]).map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`inbox-filter-option${sort === s ? " is-selected" : ""}`}
+                      onClick={() => { setSort(s); setFilterOpen(false); }}
+                    >
+                      {s === "newest" ? "Newest first" : "Oldest first"}
+                    </button>
+                  ))}
+                  <div className="inbox-filter-divider" />
+                  <p className="inbox-filter-group-label">Filter</p>
+                  {filterOptions.map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      className={`inbox-filter-option${filter === f ? " is-selected" : ""}`}
+                      onClick={() => { setFilter(f); setFilterOpen(false); }}
+                    >
+                      {FILTER_LABELS[f]}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
         <div className="conversation-list">
-          <ConversationList search={search} />
+          <ConversationList search={search} sort={sort} filter={effectiveFilter} />
         </div>
 
         <button

@@ -1,22 +1,18 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
-import { MOCK_MODE, MOCK_PRESENCE, type PresenceStatus } from "@/lib/mock";
 import { getSocket } from "./socket";
 import { realtimeEvents } from "./events";
 
+export type PresenceStatus = "online" | "away" | "offline";
 type PresenceMap = Map<string, PresenceStatus>;
 
 const OnlineStatusContext = createContext<PresenceMap>(new Map());
 
 export function OnlineStatusProvider({ children }: { children: ReactNode }) {
-  const [presence, setPresence] = useState<PresenceMap>(() =>
-    MOCK_MODE ? new Map(MOCK_PRESENCE) : new Map()
-  );
+  const [presence, setPresence] = useState<PresenceMap>(() => new Map());
 
   useEffect(() => {
-    if (MOCK_MODE) return;
-
     const socket = getSocket();
 
     function handlePresence(payload: { userId: string; status: PresenceStatus }) {

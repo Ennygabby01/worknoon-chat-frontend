@@ -64,6 +64,7 @@ export const BOT_SCRIPT: Record<string, BotStep> = {
     id: "returns-question",
     message: "Go ahead, what would you like to know? I will pass this to the agent.",
     choices: null,
+    autoHandoff: true,
   },
   "product-root": {
     id: "product-root",
@@ -106,6 +107,7 @@ export const BOT_SCRIPT: Record<string, BotStep> = {
     id: "something-else",
     message: "No problem. Briefly describe what you need and an agent will be with you shortly.",
     choices: null,
+    autoHandoff: true,
   },
 };
 

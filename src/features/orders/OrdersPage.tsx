@@ -1,9 +1,11 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import Image from "next/image";
 import Link from "next/link";
-import { MOCK_ORDERS, STATUS_LABEL, type MockOrder, type OrderStatus } from "./orders-mock";
+import { Spinner } from "@/components/ui/Spinner";
+import { listOrders } from "@/lib/api/orders";
+import { useUserName } from "@/lib/users/user-cache-context";
+import type { ApiOrder, OrderStatus } from "@/types/api";
 
 const PAGE_SIZE = 5;
 
@@ -16,6 +18,15 @@ function ChatBtnIcon() {
 }
 
 const currencyFmt = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
+
+const STATUS_LABEL: Record<OrderStatus, string> = {
+  pending: "Pending",
+  processing: "Processing",
+  shipped: "Shipped",
+  delivered: "Delivered",
+  cancelled: "Cancelled",
+  returned: "Returned",
+};
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", {
@@ -128,26 +139,37 @@ function StatusFilterDropdown({
   );
 }
 
-function summary() {
-  const total = MOCK_ORDERS.length;
-  const delivered = MOCK_ORDERS.filter((o) => o.status === "delivered").length;
-  const active = MOCK_ORDERS.filter(
+function summary(orders: ApiOrder[]) {
+  const total = orders.length;
+  const delivered = orders.filter((o) => o.status === "delivered").length;
+  const active = orders.filter(
     (o) => o.status === "shipped" || o.status === "processing",
   ).length;
-  const spent = MOCK_ORDERS.filter(
+  const spent = orders.filter(
     (o) => o.status !== "cancelled" && o.status !== "returned",
   ).reduce((sum, o) => sum + o.amount, 0);
   return { total, delivered, active, spent };
 }
 
 export function OrdersPage() {
-  const { total, delivered, active, spent } = summary();
+  const [orders, setOrders] = useState<ApiOrder[]>([]);
   const [filter, setFilter] = useState<FilterValue>("all");
   const [visible, setVisible] = useState(PAGE_SIZE);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    listOrders({ limit: 100 })
+      .then(({ orders }) => setOrders(orders))
+      .catch(() => setError("We could not load your orders. Please try again."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const { total, delivered, active, spent } = summary(orders);
 
   const filtered =
-    filter === "all" ? MOCK_ORDERS : MOCK_ORDERS.filter((o) => o.status === filter);
+    filter === "all" ? orders : orders.filter((o) => o.status === filter);
 
   function handleFilterChange(v: FilterValue) {
     setFilter(v);
@@ -157,6 +179,9 @@ export function OrdersPage() {
 
   const shown = filtered.slice(0, visible);
   const hasMore = visible < filtered.length;
+
+  if (loading) return <div className="loading-screen"><Spinner size="lg" /></div>;
+  if (error) return <div className="error-banner">{error}</div>;
 
   return (
     <>
@@ -188,8 +213,8 @@ export function OrdersPage() {
               </tr>
             </thead>
             <tbody>
-              {shown.map((order, i) => (
-                <OrderRow key={order.id} order={order} priority={i === 0} />
+              {shown.map((order) => (
+                <OrderRow key={order.id} order={order} />
               ))}
               {shown.length === 0 && (
                 <tr>
@@ -207,11 +232,10 @@ export function OrdersPage() {
           {shown.length === 0 && (
             <div className="orders-accordion-empty">No orders match this filter.</div>
           )}
-          {shown.map((order, i) => (
+          {shown.map((order) => (
             <OrderAccordionItem
               key={order.id}
               order={order}
-              priority={i === 0}
               open={openId === order.id}
               onToggle={() => setOpenId((prev) => (prev === order.id ? null : order.id))}
             />
@@ -236,30 +260,35 @@ export function OrdersPage() {
   );
 }
 
-function OrderRow({ order, priority }: { order: MockOrder; priority?: boolean }) {
+function ProductMark({ name }: { name: string }) {
+  const initials = name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
+  return <span className="order-product-mark" aria-hidden>{initials || "WN"}</span>;
+}
+
+function OrderRow({ order }: { order: ApiOrder }) {
+  const sellerName = useUserName(order.sellerId);
   return (
     <tr>
       <td>
-        <span className="order-id">{order.id}</span>
+        <span className="order-id">{order.orderNumber}</span>
       </td>
       <td>
         <div className="order-product-cell">
           <div className="order-product-img-wrap">
-            <Image
-              src={`https://picsum.photos/id/${order.imageId}/64/64`}
-              alt={order.product}
-              width={40}
-              height={40}
-              className="order-product-img"
-              priority={priority}
-            />
+            <ProductMark name={order.productName} />
           </div>
-          <span style={{ fontWeight: 500 }}>{order.product}</span>
+          <span style={{ fontWeight: 500 }}>{order.productName}</span>
         </div>
       </td>
       <td>
         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span>{order.seller}</span>
+          <span>{sellerName}</span>
           <span className={`order-seller-role order-seller-role--${order.sellerRole}`}>
             {order.sellerRole}
           </span>
@@ -285,32 +314,25 @@ function OrderRow({ order, priority }: { order: MockOrder; priority?: boolean })
 
 function OrderAccordionItem({
   order,
-  priority,
   open,
   onToggle,
 }: {
-  order: MockOrder;
-  priority?: boolean;
+  order: ApiOrder;
   open: boolean;
   onToggle: () => void;
 }) {
+  const sellerName = useUserName(order.sellerId);
+
   return (
     <div className={`oac-item${open ? " is-open" : ""}`}>
       <button className="oac-trigger" onClick={onToggle}>
         <div className="oac-trigger-left">
           <div className="order-product-img-wrap">
-            <Image
-              src={`https://picsum.photos/id/${order.imageId}/64/64`}
-              alt={order.product}
-              width={40}
-              height={40}
-              className="order-product-img"
-              priority={priority}
-            />
+            <ProductMark name={order.productName} />
           </div>
           <div className="oac-trigger-info">
-            <span className="oac-product">{order.product}</span>
-            <span className="order-id">{order.id}</span>
+            <span className="oac-product">{order.productName}</span>
+            <span className="order-id">{order.orderNumber}</span>
           </div>
         </div>
         <div className="oac-trigger-right">
@@ -325,7 +347,7 @@ function OrderAccordionItem({
             <div className="oac-row">
               <span className="oac-label">Seller</span>
               <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span>{order.seller}</span>
+                <span>{sellerName}</span>
                 <span className={`order-seller-role order-seller-role--${order.sellerRole}`}>
                   {order.sellerRole}
                 </span>

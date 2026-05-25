@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/session/session-context";
+import { getDefaultAppRoute } from "@/lib/session/default-route";
 import type { UserRole } from "@/types/api";
 
 export function useRequireRole(role: UserRole | UserRole[]) {
@@ -17,7 +18,7 @@ export function useRequireRole(role: UserRole | UserRole[]) {
     }
     const allowed = Array.isArray(role) ? role : [role];
     if (!allowed.includes(session.user.role)) {
-      router.replace("/inbox");
+      router.replace(getDefaultAppRoute(session.user.role));
     }
   }, [loading, session, router, role]);
 

@@ -7,6 +7,14 @@ import { useRequireRole } from "@/lib/hooks/useRequireRole";
 import { adminListConversations } from "@/lib/api/admin";
 import type { ApiConversation } from "@/types/api";
 
+function formatDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
 const STATUS_LABELS: Record<string, string> = {
   open: "Open",
   escalated: "Escalated",
@@ -39,11 +47,13 @@ export function AdminConversationsPage() {
   return (
     <div className="admin-table-wrap">
       <div className="admin-table-toolbar">
-        <div className="admin-filter-tabs">
+        <div className="dir-tabs" role="tablist">
           {(["all", "direct", "support"] as const).map((t) => (
             <button
               key={t}
-              className={`admin-filter-tab${typeFilter === t ? " is-active" : ""}`}
+              role="tab"
+              aria-selected={typeFilter === t}
+              className={`dir-tab${typeFilter === t ? " is-active" : ""}`}
               onClick={() => setTypeFilter(t)}
             >
               {t.charAt(0).toUpperCase() + t.slice(1)}
@@ -78,9 +88,7 @@ export function AdminConversationsPage() {
                 </td>
                 <td className="admin-muted">{c.participants.length}</td>
                 <td className="admin-muted">
-                  {c.lastMessageAt
-                    ? new Date(c.lastMessageAt).toLocaleDateString()
-                    : new Date(c.updatedAt).toLocaleDateString()}
+                  {formatDate(c.lastMessageAt ?? c.updatedAt)}
                 </td>
               </tr>
             ))}

@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/session/session-context";
+import { getDefaultAppRoute } from "@/lib/session/default-route";
 import { FloatInput } from "@/components/ui/FloatInput";
 import { Button } from "@/components/ui/Button";
 import { BrandPanel } from "./BrandPanel";
@@ -22,8 +23,8 @@ export function LoginForm() {
     setError("");
     setLoading(true);
     try {
-      await login(email, password);
-      router.replace("/inbox");
+      const nextSession = await login(email, password);
+      router.replace(getDefaultAppRoute(nextSession.user.role));
     } catch (err) {
       const appError = err as AppError;
       if (appError.code === "EMAIL_NOT_VERIFIED") {

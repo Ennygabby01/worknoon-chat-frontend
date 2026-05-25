@@ -138,7 +138,7 @@ function EditProfileSection() {
 }
 
 function AccountSection() {
-  const { session } = useSession();
+  const { session, logout } = useSession();
   const user = session!.user;
 
   const joined = new Date(user.createdAt).toLocaleDateString("en-US", {
@@ -168,6 +168,14 @@ function AccountSection() {
           <span className="settings-info-label">Member since</span>
           <span className="settings-info-value">{joined}</span>
         </div>
+      </div>
+      <div className="settings-account-actions">
+        <button type="button" className="settings-signout-btn" onClick={() => void logout()}>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <path d="M20 12h-9.5m7.5 3l3-3-3-3m-5-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2h5a2 2 0 002-2v-1" />
+          </svg>
+          Sign out
+        </button>
       </div>
     </div>
   );

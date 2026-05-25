@@ -6,7 +6,7 @@ import { listConversations } from "@/lib/api/conversations";
 import { getSocket } from "@/lib/realtime/socket";
 import { realtimeEvents } from "@/lib/realtime/events";
 import { useSession } from "@/lib/session/session-context";
-import { useUserName, useUserRole } from "@/lib/users/user-cache-context";
+import { useUserName } from "@/lib/users/user-cache-context";
 import { usePresence } from "@/lib/realtime/online-status-context";
 import { ConversationRow } from "./ConversationRow";
 import { Spinner } from "@/components/ui/Spinner";
@@ -59,7 +59,6 @@ function ConversationRowWithMeta({
   isTyping: boolean;
 }) {
   const name = useUserName(otherId);
-  const role = useUserRole(otherId);
   const presence = usePresence(otherId);
   return (
     <ConversationRow
@@ -67,14 +66,24 @@ function ConversationRowWithMeta({
       currentUserId={currentUserId}
       isActive={isActive}
       otherName={name}
-      otherRole={role}
       isTyping={isTyping}
       presence={presence}
     />
   );
 }
 
-export function ConversationList({ search = "" }: { search?: string }) {
+export type ConversationSort = "newest" | "oldest";
+export type ConversationFilter = "all" | "open" | "escalated" | "assigned" | "resolved";
+
+export function ConversationList({
+  search = "",
+  sort = "newest",
+  filter = "all",
+}: {
+  search?: string;
+  sort?: ConversationSort;
+  filter?: ConversationFilter;
+}) {
   const { session } = useSession();
   const pathname = usePathname();
   const [conversations, setConversations] = useState<ApiConversation[]>([]);
@@ -85,7 +94,7 @@ export function ConversationList({ search = "" }: { search?: string }) {
   const currentUserId = session!.user.id;
 
   useEffect(() => {
-    listConversations(currentUserId)
+    listConversations()
       .then((list) => {
         setConversations(list);
 
@@ -149,7 +158,8 @@ export function ConversationList({ search = "" }: { search?: string }) {
   }
 
   const normalizedSearch = search.trim().toLowerCase();
-  const visibleConversations = normalizedSearch
+
+  let visibleConversations = normalizedSearch
     ? conversations.filter((conversation) => {
         const haystack = [
           conversation.topic,
@@ -162,7 +172,17 @@ export function ConversationList({ search = "" }: { search?: string }) {
           .toLowerCase();
         return haystack.includes(normalizedSearch);
       })
-    : conversations;
+    : [...conversations];
+
+  if (filter !== "all") {
+    visibleConversations = visibleConversations.filter((c) => c.status === filter);
+  }
+
+  visibleConversations.sort((a, b) => {
+    const ta = new Date(a.lastMessageAt ?? a.createdAt).getTime();
+    const tb = new Date(b.lastMessageAt ?? b.createdAt).getTime();
+    return sort === "newest" ? tb - ta : ta - tb;
+  });
 
   if (conversations.length === 0) {
     return (

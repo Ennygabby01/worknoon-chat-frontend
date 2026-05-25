@@ -23,7 +23,7 @@ import type { PublicRegistrationRole } from "@/types/api";
 type SessionContextValue = {
   session: AuthSession | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthSession>;
   confirmEmailVerification: (input: { email: string; code: string }) => Promise<void>;
   register: (input: {
     name: string;
@@ -68,9 +68,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     const result = await apiLogin({ email, password });
+    const nextSession = { user: result.user, accessToken: result.accessToken };
+
     setAccessToken(result.accessToken);
     connectSocket(result.accessToken);
-    setSession({ user: result.user, accessToken: result.accessToken });
+    setSession(nextSession);
+
+    return nextSession;
   }, []);
 
   const confirmEmailVerification = useCallback(

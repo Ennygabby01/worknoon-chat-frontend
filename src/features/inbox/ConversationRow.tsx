@@ -9,7 +9,6 @@ type ConversationRowProps = {
   currentUserId: string;
   isActive: boolean;
   otherName: string;
-  otherRole?: string | null;
   isTyping?: boolean;
   presence?: PresenceStatus;
 };
@@ -43,24 +42,18 @@ function displayName(conversation: ApiConversation, otherName: string): string {
   return otherName;
 }
 
-function roleLabel(conversation: ApiConversation, otherRole: string | null | undefined): string {
-  if (otherRole) return otherRole.charAt(0).toUpperCase() + otherRole.slice(1);
-  return conversation.type === "support" ? "Support" : "Direct";
-}
 
 export function ConversationRow({
   conversation,
   currentUserId,
   isActive,
   otherName,
-  otherRole,
   isTyping = false,
   presence = "offline",
 }: ConversationRowProps) {
   const unread = isUnread(conversation, currentUserId);
   const name = displayName(conversation, otherName);
   const timestamp = conversation.lastMessageAt ?? conversation.createdAt;
-  const label = roleLabel(conversation, otherRole);
 
   return (
     <Link
@@ -78,10 +71,6 @@ export function ConversationRow({
         <div className="conversation-row-header">
           <span className="conversation-row-name">{name}</span>
           <span className="conversation-row-time">{formatRelativeTime(timestamp)}</span>
-        </div>
-
-        <div className="conversation-row-meta">
-          <span className="conversation-row-role">{label}</span>
         </div>
 
         <div className="conversation-row-preview">

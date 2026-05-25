@@ -35,20 +35,22 @@ function ChatHeaderContent({
   onNameClick,
   detailOpen,
 }: ChatHeaderProps) {
-  const otherId =
-    conversation.participants.find((p) => p.userId !== currentUserId)?.userId ??
-    currentUserId;
+  const otherParticipant = conversation.participants.find((p) => p.userId !== currentUserId);
+  const waitingForAgent = conversation.type === "support" && !otherParticipant;
+  const otherId = otherParticipant?.userId ?? currentUserId;
   const otherName = useUserName(otherId);
   const otherRole = useUserRole(otherId);
   const presence = usePresence(otherId);
 
-  const displayName = conversation.topic ?? otherName;
+  const displayName = waitingForAgent ? "Worknoon Support" : conversation.topic ?? otherName;
   const roleLabel = otherRole
     ? otherRole.charAt(0).toUpperCase() + otherRole.slice(1)
     : conversation.type === "support"
     ? "Support"
-    : "Direct";
-  const presenceLabel = presence.charAt(0).toUpperCase() + presence.slice(1);
+    : "";
+  const presenceLabel = waitingForAgent
+    ? "Waiting for an agent"
+    : presence.charAt(0).toUpperCase() + presence.slice(1);
 
   return (
     <div className="chat-header">
@@ -66,8 +68,10 @@ function ChatHeaderContent({
           {displayName}
         </button>
         <div className="chat-header-sub">
-          {roleLabel}
-          <span className={`presence-text presence-text--${presence}`}>{presenceLabel}</span>
+          {roleLabel && <span>{roleLabel}</span>}
+          <span className={`presence-text presence-text--${waitingForAgent ? "away" : presence}`}>
+            {presenceLabel}
+          </span>
         </div>
       </div>
     </div>
@@ -94,7 +98,7 @@ function ChatDetailContent({
     ? otherRole.charAt(0).toUpperCase() + otherRole.slice(1)
     : conversation.type === "support"
     ? "Support"
-    : "Direct";
+    : "";
 
   return (
     <>
@@ -109,7 +113,7 @@ function ChatDetailContent({
         <div className="chat-detail-profile">
           <Avatar name={displayName} size="xl" />
           <div className="chat-detail-name">{displayName}</div>
-          <div className="chat-detail-role">{roleLabel}</div>
+          {roleLabel && <div className="chat-detail-role">{roleLabel}</div>}
         </div>
 
         <div className="chat-detail-section">
@@ -117,7 +121,7 @@ function ChatDetailContent({
           <div className="chat-detail-row">
             <span className="chat-detail-row-label">Type</span>
             <span className="chat-detail-row-value">
-              {conversation.type === "support" ? "Support" : "Direct message"}
+              {conversation.type === "support" ? "Support" : "Direct"}
             </span>
           </div>
           {conversation.topic && (
@@ -258,13 +262,13 @@ export function ChatView({ conversationId }: ChatViewProps) {
 
   useEffect(() => {
     Promise.all([
-      getConversation(conversationId, currentUserId),
-      listMessages(conversationId, undefined, currentUserId),
+      getConversation(conversationId),
+      listMessages(conversationId),
     ])
       .then(([conv, msgs]) => {
         setConversation(conv);
         setMessages(msgs);
-        markConversationRead(conversationId, currentUserId).catch(() => {});
+        markConversationRead(conversationId).catch(() => {});
       })
       .catch(() => setError("We could not load this conversation."))
       .finally(() => {
@@ -291,7 +295,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
         if (prev.some((m) => m.id === payload.message.id)) return prev;
         return [...prev, payload.message];
       });
-      markConversationRead(conversationId, currentUserId).catch(() => {});
+      markConversationRead(conversationId).catch(() => {});
       setTimeout(() => scrollToBottom(), 50);
     }
 
@@ -340,7 +344,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
 
   async function handleSend(body: string) {
     const clientMessageId = generateClientId();
-    const message = await sendMessage(conversationId, { body, clientMessageId }, currentUserId);
+    const message = await sendMessage(conversationId, { body, clientMessageId });
     setMessages((prev) => {
       if (prev.some((m) => m.id === message.id)) return prev;
       return [...prev, message];

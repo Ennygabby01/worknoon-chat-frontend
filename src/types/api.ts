@@ -9,6 +9,10 @@ export type ApiUser = {
   email: string;
   role: UserRole;
   avatarUrl: string | null;
+  bio: string | null;
+  location: string | null;
+  ordersCompleted: number;
+  conversationsCount: number;
   banned: boolean;
   emailVerifiedAt: string | null;
   createdAt: string;
@@ -50,4 +54,27 @@ export type Pagination = {
   page: number;
   limit: number;
   total: number;
+};
+
+export type OrderStatus =
+  | "pending"
+  | "processing"
+  | "shipped"
+  | "delivered"
+  | "cancelled"
+  | "returned";
+
+export type ApiOrder = {
+  id: string;
+  orderNumber: string;
+  buyerId: string;
+  sellerId: string;
+  productName: string;
+  amount: number;
+  status: OrderStatus;
+  sellerRole: "designer" | "merchant";
+  conversationId: string | null;
+  placedAt: string;
+  createdAt: string;
+  updatedAt: string;
 };

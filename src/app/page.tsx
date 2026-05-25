@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "@/lib/session/session-context";
+import { getDefaultAppRoute } from "@/lib/session/default-route";
 import { Spinner } from "@/components/ui/Spinner";
 
 export default function HomePage() {
@@ -11,7 +12,7 @@ export default function HomePage() {
 
   useEffect(() => {
     if (loading) return;
-    router.replace(session ? "/inbox" : "/login");
+    router.replace(session ? getDefaultAppRoute(session.user.role) : "/login");
   }, [loading, session, router]);
 
   return (

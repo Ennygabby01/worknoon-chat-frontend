@@ -1,19 +1,17 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
 import { Badge } from "@/components/ui/Badge";
 import { SearchIcon } from "@/components/ui/SearchIcon";
+import { Spinner } from "@/components/ui/Spinner";
 import { createConversation } from "@/lib/api/conversations";
-import { useSession } from "@/lib/session/session-context";
-import {
-  DIRECTORY_ENTRIES,
-  MOCK_DIRECTORY_PRESENCE,
-  type DirectoryEntry,
-  type DirectoryRole,
-} from "./directory-mock";
+import { listChatContacts } from "@/lib/api/users";
+import { usePresence } from "@/lib/realtime/online-status-context";
+import type { ApiUser } from "@/types/api";
 
+type DirectoryRole = "designer" | "merchant";
 type FilterTab = "all" | DirectoryRole;
 
 const TABS: { value: FilterTab; label: string }[] = [
@@ -54,12 +52,11 @@ function MessageIcon() {
   );
 }
 
-function DirectoryCard({ entry }: { entry: DirectoryEntry }) {
+function DirectoryCard({ entry }: { entry: ApiUser }) {
   const router = useRouter();
-  const { session } = useSession();
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState("");
-  const presence = MOCK_DIRECTORY_PRESENCE[entry.id] ?? "offline";
+  const presence = usePresence(entry.id);
 
   async function handleMessage() {
     setStarting(true);
@@ -68,7 +65,7 @@ function DirectoryCard({ entry }: { entry: DirectoryEntry }) {
       const conversation = await createConversation({
         participantIds: [entry.id],
         type: "direct",
-      }, session!.user.id);
+      });
       router.push(`/inbox/${conversation.id}`);
     } catch {
       setError("Could not start conversation. Try again.");
@@ -93,10 +90,10 @@ function DirectoryCard({ entry }: { entry: DirectoryEntry }) {
           <Badge label={entry.role} />
           <span className="dir-card-location">
             <LocationIcon />
-            {entry.location}
+            {entry.location ?? "Remote"}
           </span>
         </div>
-        <p className="dir-card-bio">{entry.bio}</p>
+        <p className="dir-card-bio">{entry.bio ?? "Available for buyer conversations and product support."}</p>
         <div className="dir-card-stats">
           <span className="dir-stat">
             <span className="dir-stat-value">{compactNumber(entry.ordersCompleted)}</span>
@@ -123,7 +120,22 @@ export function DirectoryPage() {
   const [filter, setFilter] = useState<FilterTab>("all");
   const [search, setSearch] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
+  const [entries, setEntries] = useState<ApiUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    Promise.all([
+      listChatContacts({ role: "designer", limit: 100 }),
+      listChatContacts({ role: "merchant", limit: 100 }),
+    ])
+      .then(([designers, merchants]) => {
+        setEntries([...designers.users, ...merchants.users]);
+      })
+      .catch(() => setLoadError("We could not load the directory. Please try again."))
+      .finally(() => setLoading(false));
+  }, []);
 
   function toggleSearch() {
     setSearchOpen((prev) => {
@@ -133,23 +145,21 @@ export function DirectoryPage() {
     });
   }
 
-  const filtered = DIRECTORY_ENTRIES.filter((e) => {
+  const filtered = entries.filter((e) => {
     const matchRole = filter === "all" || e.role === filter;
     const q = search.trim().toLowerCase();
     const matchSearch =
       !q ||
       e.name.toLowerCase().includes(q) ||
-      e.location.toLowerCase().includes(q) ||
-      e.bio.toLowerCase().includes(q);
+      (e.location ?? "").toLowerCase().includes(q) ||
+      (e.bio ?? "").toLowerCase().includes(q);
     return matchRole && matchSearch;
   });
 
-  const presenceOrder = { online: 0, away: 1, offline: 2 } as const;
-  const sorted = [...filtered].sort((a, b) => {
-    const pa = MOCK_DIRECTORY_PRESENCE[a.id] ?? "offline";
-    const pb = MOCK_DIRECTORY_PRESENCE[b.id] ?? "offline";
-    return presenceOrder[pa] - presenceOrder[pb];
-  });
+  const sorted = [...filtered].sort((a, b) => b.ordersCompleted - a.ordersCompleted);
+
+  if (loading) return <div className="loading-screen"><Spinner size="lg" /></div>;
+  if (loadError) return <div className="error-banner">{loadError}</div>;
 
   return (
     <div className="dir-page">
@@ -232,4 +242,3 @@ function LocationIcon() {
     </svg>
   );
 }
-

@@ -3,9 +3,11 @@
 import { useState, useRef, useEffect } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { SearchIcon } from "@/components/ui/SearchIcon";
-import { MOCK_USERS } from "./admin-mock";
+import { Spinner } from "@/components/ui/Spinner";
+import { adminListUsers, adminUpdateUser } from "@/lib/api/admin";
 import type { ApiUser, UserRole } from "@/types/api";
 
+const PAGE_SIZE = 20;
 const ROLES: UserRole[] = ["customer", "designer", "merchant", "agent", "admin"];
 
 function formatDate(iso: string) {
@@ -76,6 +78,61 @@ function RoleDropdown({
   );
 }
 
+function RoleFilterDropdown({
+  value,
+  onChange,
+}: {
+  value: UserRole | "all";
+  onChange: (r: UserRole | "all") => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handle(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", handle);
+    return () => document.removeEventListener("mousedown", handle);
+  }, [open]);
+
+  const options: (UserRole | "all")[] = ["all", ...ROLES];
+  const label = value === "all" ? "All roles" : value;
+
+  return (
+    <div className="order-filter" ref={ref}>
+      <button
+        className={`order-filter-trigger${open ? " is-open" : ""}`}
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+      >
+        <span>{label}</span>
+        <ChevronIcon />
+      </button>
+      {open && (
+        <div className="order-filter-dropdown" role="listbox">
+          {options.map((r) => (
+            <button
+              key={r}
+              role="option"
+              aria-selected={r === value}
+              className={`order-filter-option${r === value ? " is-selected" : ""}`}
+              onClick={() => {
+                onChange(r);
+                setOpen(false);
+              }}
+            >
+              {r === "all" ? "All roles" : r}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function UserAccordionItem({
   user,
   open,
@@ -135,26 +192,49 @@ function UserAccordionItem({
 }
 
 export function AdminUsersPage() {
-  const [users, setUsers] = useState<ApiUser[]>(MOCK_USERS);
+  const [users, setUsers] = useState<ApiUser[]>([]);
   const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
+  const [visible, setVisible] = useState(PAGE_SIZE);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-  function handleRoleChange(userId: string, role: UserRole) {
-    setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
+  useEffect(() => {
+    adminListUsers({ limit: 100 })
+      .then(({ users: nextUsers }) => setUsers(nextUsers))
+      .catch(() => setError("Could not load users."))
+      .finally(() => setLoading(false));
+  }, []);
+
+  useEffect(() => {
+    setVisible(PAGE_SIZE);
+  }, [search, roleFilter]);
+
+  async function handleRoleChange(userId: string, role: UserRole) {
+    const updated = await adminUpdateUser(userId, { role });
+    setUsers((prev) => prev.map((u) => (u.id === userId ? updated : u)));
   }
 
-  function handleBanToggle(user: ApiUser) {
-    setUsers((prev) =>
-      prev.map((u) => (u.id === user.id ? { ...u, banned: !u.banned } : u))
-    );
+  async function handleBanToggle(user: ApiUser) {
+    const updated = await adminUpdateUser(user.id, { banned: !user.banned });
+    setUsers((prev) => prev.map((u) => (u.id === user.id ? updated : u)));
   }
 
-  const filtered = users.filter(
-    (u) =>
+  const filtered = users.filter((u) => {
+    const matchRole = roleFilter === "all" || u.role === roleFilter;
+    const matchSearch =
       !search ||
       u.name.toLowerCase().includes(search.toLowerCase()) ||
-      u.email.toLowerCase().includes(search.toLowerCase())
-  );
+      u.email.toLowerCase().includes(search.toLowerCase());
+    return matchRole && matchSearch;
+  });
+
+  const shown = filtered.slice(0, visible);
+  const hasMore = visible < filtered.length;
+
+  if (loading) return <div className="loading-screen"><Spinner size="lg" /></div>;
+  if (error) return <div className="error-banner">{error}</div>;
 
   return (
     <div className="admin-table-wrap">
@@ -169,11 +249,11 @@ export function AdminUsersPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+        <RoleFilterDropdown value={roleFilter} onChange={setRoleFilter} />
         <span className="admin-table-count">{filtered.length} users</span>
       </div>
 
       <div className="admin-table-card">
-        {/* desktop table */}
         <div className="admin-desktop-only">
           <table className="data-table">
             <thead>
@@ -187,7 +267,7 @@ export function AdminUsersPage() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((u) => (
+              {shown.map((u) => (
                 <tr key={u.id} className={u.banned ? "admin-row-banned" : ""}>
                   <td>
                     <div className="admin-user-cell">
@@ -199,7 +279,7 @@ export function AdminUsersPage() {
                   <td>
                     <RoleDropdown
                       value={u.role}
-                      onChange={(r) => handleRoleChange(u.id, r)}
+                      onChange={(r) => void handleRoleChange(u.id, r)}
                     />
                   </td>
                   <td>
@@ -212,7 +292,7 @@ export function AdminUsersPage() {
                   <td>
                     <button
                       className={`admin-action-btn${u.banned ? " admin-action-unban" : " admin-action-ban"}`}
-                      onClick={() => handleBanToggle(u)}
+                      onClick={() => void handleBanToggle(u)}
                     >
                       {u.banned ? "Unban" : "Ban"}
                     </button>
@@ -224,23 +304,34 @@ export function AdminUsersPage() {
           {filtered.length === 0 && <div className="empty-state">No users found.</div>}
         </div>
 
-        {/* mobile accordion */}
         <div className="orders-accordion admin-mobile-only">
           {filtered.length === 0 && (
             <div className="orders-accordion-empty">No users found.</div>
           )}
-          {filtered.map((u) => (
+          {shown.map((u) => (
             <UserAccordionItem
               key={u.id}
               user={u}
               open={openId === u.id}
               onToggle={() => setOpenId((prev) => (prev === u.id ? null : u.id))}
-              onRoleChange={(r) => handleRoleChange(u.id, r)}
-              onBanToggle={() => handleBanToggle(u)}
+              onRoleChange={(r) => void handleRoleChange(u.id, r)}
+              onBanToggle={() => void handleBanToggle(u)}
             />
           ))}
         </div>
       </div>
+
+      {hasMore && (
+        <div className="orders-load-more">
+          <button
+            className="orders-load-more-btn"
+            onClick={() => setVisible((v) => v + PAGE_SIZE)}
+          >
+            Load more
+            <span className="orders-load-more-count">{filtered.length - visible} remaining</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

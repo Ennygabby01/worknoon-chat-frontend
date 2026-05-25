@@ -1,4 +1,4 @@
-import { AdminDashboard } from "@/features/admin/AdminDashboard";
+import { AdminOverviewPage } from "@/features/admin/AdminOverviewPage";
 
 export default function AdminPage() {
   return (
@@ -7,7 +7,7 @@ export default function AdminPage() {
         <h1 className="page-heading">Admin</h1>
         <p className="page-subheading">User overview and platform metrics.</p>
       </div>
-      <AdminDashboard />
+      <AdminOverviewPage />
     </div>
   );
 }

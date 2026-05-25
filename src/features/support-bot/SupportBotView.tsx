@@ -3,9 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
-import { createConversation } from "@/lib/api/conversations";
-import { sendMessage } from "@/lib/api/messages";
-import { useSession } from "@/lib/session/session-context";
+import { createSupportConversation } from "@/lib/api/conversations";
 import { BotThread } from "./BotThread";
 import { BotChoiceBar } from "./BotChoiceBar";
 import { BotComposer } from "./BotComposer";
@@ -24,7 +22,6 @@ function clientId() {
 
 export function SupportBotView({ onClose }: SupportBotViewProps) {
   const router = useRouter();
-  const { session } = useSession();
   const [phase, setPhase] = useState<BotPhase>("chat");
   const [stepId, setStepId] = useState("start");
   const [history, setHistory] = useState<BotHistoryItem[]>([]);
@@ -94,9 +91,9 @@ export function SupportBotView({ onClose }: SupportBotViewProps) {
   }
 
   async function handleHandoffSend(message: string) {
-    const currentUserId = session!.user.id;
-    const conversation = await createConversation({ participantIds: [], type: "support" }, currentUserId);
-    await sendMessage(conversation.id, { body: message, clientMessageId: clientId() }, currentUserId);
+    const conversation = await createSupportConversation(
+      { openingMessage: message, clientMessageId: clientId(), topic: "Support request" }
+    );
     onClose();
     router.push(`/inbox/${conversation.id}`);
   }

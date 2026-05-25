@@ -1,15 +1,14 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Avatar } from "@/components/ui/Avatar";
-import { MOCK_USERS } from "@/lib/mock";
+import { listChatContacts } from "@/lib/api/users";
 import { useIsOnline } from "@/lib/realtime/online-status-context";
+import type { ApiUser } from "@/types/api";
 
 type AgentHandoffPanelProps = {
   onSend: (message: string) => Promise<void>;
 };
-
-const AGENTS = MOCK_USERS.filter((u) => u.role === "agent").slice(0, 3);
 
 function AgentPileItem({ name, userId }: { name: string; userId: string }) {
   const online = useIsOnline(userId);
@@ -25,6 +24,13 @@ export function AgentHandoffPanel({ onSend }: AgentHandoffPanelProps) {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [error, setError] = useState("");
+  const [agents, setAgents] = useState<ApiUser[]>([]);
+
+  useEffect(() => {
+    listChatContacts({ role: "agent", limit: 3 })
+      .then(({ users }) => setAgents(users))
+      .catch(() => setAgents([]));
+  }, []);
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -44,7 +50,7 @@ export function AgentHandoffPanel({ onSend }: AgentHandoffPanelProps) {
     <div className="handoff-panel">
       <div className="handoff-agents">
         <div className="handoff-pile">
-          {AGENTS.map((agent) => (
+          {agents.map((agent) => (
             <AgentPileItem key={agent.id} name={agent.name} userId={agent.id} />
           ))}
         </div>

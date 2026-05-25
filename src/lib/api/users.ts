@@ -9,6 +9,8 @@ export async function getMe(): Promise<ApiUser> {
 export async function updateProfile(input: {
   name?: string;
   avatarUrl?: string | null;
+  bio?: string | null;
+  location?: string | null;
 }): Promise<ApiUser> {
   const data = await apiRequest<{ user: ApiUser }>("/users/me", {
     method: "PATCH",
