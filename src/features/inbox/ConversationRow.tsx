@@ -41,8 +41,7 @@ function isUnread(conversation: ApiConversation, userId: string): boolean {
 
 function displayName(conversation: ApiConversation, otherName: string): string {
   if (conversation.type === "support") return otherName || conversation.topic || "Support request";
-  if (conversation.topic) return conversation.topic;
-  return otherName;
+  return otherName || conversation.topic || "Conversation";
 }
 
 
