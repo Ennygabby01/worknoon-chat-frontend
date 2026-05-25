@@ -122,7 +122,7 @@ The iframe receives:
 - Mock data was useful for building the UI quickly, but it became a delivery risk. I removed the mock mode and wired admin, directory, orders, inbox, and support handoff screens to real backend APIs so the demo reflects the actual system.
 - Chat header role labels depended on a contact cache. A backend pagination cap caused that preload to fail silently, so the UI could show names without roles. The fix was coordinated with the backend and the frontend now relies on the real contact cache.
 - Admin users originally landed in the inbox after login because all roles shared one redirect. A role-aware route helper now sends admins to `/secure-end/Admin` and keeps other users on `/inbox`.
-- The UI had to balance a polished Dribbble-inspired look with assessment time. I prioritized the core chat, admin, agent, directory, order, and WordPress embed flows over extras like dark mode, file uploads, and push notifications.
+- The UI had to balance a polished Dribbble-inspired look with assessment time. I prioritized the core chat, admin, agent, directory, order, and WordPress embed flows; bonus items such as dark mode, file uploads, and push notifications were not implemented.
 - Token refresh is handled as a single-flight request so concurrent API failures do not spam refresh calls or cause avoidable logout behavior.
 
 ## Validation
