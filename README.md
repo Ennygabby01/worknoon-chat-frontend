@@ -8,6 +8,15 @@
 
 Next.js frontend for the Worknoon real-time chat assessment. It provides the authenticated chat workspace for customers, designers, merchants, agents, and admins.
 
+## Demo Video
+
+- [Worknoon Chat demo walkthrough](https://www.loom.com/share/7f0a051d7c7f46a9bf3c7261adcc0d0f)
+
+## Related Repositories
+
+- [Backend - API and realtime server](https://github.com/Ennygabby01/worknoon-chat-backend)
+- [WordPress - plugin integration](https://github.com/Ennygabby01/worknoon-chat-wordpress)
+
 ## Technologies
 
 - Next.js 16 App Router
