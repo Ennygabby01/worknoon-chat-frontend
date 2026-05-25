@@ -33,7 +33,7 @@ export function Button({
 
   return (
     <button {...props} disabled={disabled ?? loading} className={classes}>
-      {loading ? <Spinner /> : children}
+      {loading ? <Spinner inverted={variant === "primary"} /> : children}
     </button>
   );
 }

@@ -17,6 +17,16 @@ export async function updateProfile(input: {
   return data.user;
 }
 
+export async function changePassword(input: {
+  currentPassword: string;
+  newPassword: string;
+}): Promise<void> {
+  await apiRequest("/users/me/password", {
+    method: "POST",
+    body: JSON.stringify(input)
+  });
+}
+
 export async function listUsers(options?: {
   page?: number;
   limit?: number;
@@ -31,4 +41,20 @@ export async function listUsers(options?: {
   const qs = params.size > 0 ? `?${params.toString()}` : "";
 
   return apiRequest<{ users: ApiUser[]; pagination: Pagination }>(`/users${qs}`);
+}
+
+export async function listChatContacts(options?: {
+  page?: number;
+  limit?: number;
+  role?: Exclude<UserRole, "admin">;
+  search?: string;
+}): Promise<{ users: ApiUser[]; pagination: Pagination }> {
+  const params = new URLSearchParams();
+  if (options?.page) params.set("page", String(options.page));
+  if (options?.limit) params.set("limit", String(options.limit));
+  if (options?.role) params.set("role", options.role);
+  if (options?.search) params.set("search", options.search);
+  const qs = params.size > 0 ? `?${params.toString()}` : "";
+
+  return apiRequest<{ users: ApiUser[]; pagination: Pagination }>(`/users/contacts${qs}`);
 }

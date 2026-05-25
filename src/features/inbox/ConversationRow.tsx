@@ -2,11 +2,16 @@ import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
 import type { ApiConversation } from "@/types/api";
 
+type PresenceStatus = "online" | "away" | "offline";
+
 type ConversationRowProps = {
   conversation: ApiConversation;
   currentUserId: string;
   isActive: boolean;
   otherName: string;
+  otherRole?: string | null;
+  isTyping?: boolean;
+  presence?: PresenceStatus;
 };
 
 function formatRelativeTime(iso: string): string {
@@ -38,39 +43,57 @@ function displayName(conversation: ApiConversation, otherName: string): string {
   return otherName;
 }
 
+function roleLabel(conversation: ApiConversation, otherRole: string | null | undefined): string {
+  if (otherRole) return otherRole.charAt(0).toUpperCase() + otherRole.slice(1);
+  return conversation.type === "support" ? "Support" : "Direct";
+}
+
 export function ConversationRow({
   conversation,
   currentUserId,
   isActive,
-  otherName
+  otherName,
+  otherRole,
+  isTyping = false,
+  presence = "offline",
 }: ConversationRowProps) {
   const unread = isUnread(conversation, currentUserId);
   const name = displayName(conversation, otherName);
   const timestamp = conversation.lastMessageAt ?? conversation.createdAt;
+  const label = roleLabel(conversation, otherRole);
 
   return (
     <Link
       href={`/inbox/${conversation.id}`}
-      className={`conversation-row${isActive ? " is-active" : ""}`}
+      className={`conversation-row${isActive ? " is-active" : ""}${unread ? " is-unread" : ""}`}
     >
-      <Avatar name={name} size="md" />
+      <div className="avatar-wrap">
+        <Avatar name={name} size="md" />
+        {presence !== "offline" && (
+          <span className={`online-dot online-dot--${presence}`} aria-label={presence} />
+        )}
+      </div>
 
       <div className="conversation-row-body">
         <div className="conversation-row-header">
-          <span
-            className="conversation-row-name"
-            style={{ fontWeight: unread ? 700 : 600 }}
-          >
-            {name}
-          </span>
+          <span className="conversation-row-name">{name}</span>
           <span className="conversation-row-time">{formatRelativeTime(timestamp)}</span>
         </div>
 
+        <div className="conversation-row-meta">
+          <span className="conversation-row-role">{label}</span>
+        </div>
+
         <div className="conversation-row-preview">
-          <span className="conversation-row-preview-text">
-            {conversation.type === "support" ? "Support" : "Direct"} conversation
-          </span>
-          {unread && <span className="unread-dot" aria-label="Unread" />}
+          {isTyping ? (
+            <span className="conversation-row-typing">Typing...</span>
+          ) : (
+            <span className="conversation-row-preview-text">
+              {conversation.lastMessageBody ??
+                (conversation.type === "support" ? "Support chat" : "No messages yet")}
+            </span>
+          )}
+          {unread && <span className="unread-badge" aria-label="Unread" />}
         </div>
       </div>
     </Link>

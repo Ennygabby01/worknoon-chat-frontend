@@ -8,6 +8,10 @@ type AuthResult = {
   accessToken: string;
 };
 
+type RegisterResult = {
+  user: ApiUser;
+};
+
 type ActionResponse = {
   sent?: boolean;
   reset?: boolean;
@@ -20,7 +24,7 @@ export async function register(input: {
   email: string;
   password: string;
   role: PublicRegistrationRole;
-}): Promise<AuthResult> {
+}): Promise<RegisterResult> {
   const response = await fetch(getApiUrl("/auth/register"), {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -40,7 +44,7 @@ export async function register(input: {
     throw error;
   }
 
-  return response.json() as Promise<AuthResult>;
+  return response.json() as Promise<RegisterResult>;
 }
 
 export async function login(input: {
@@ -55,12 +59,15 @@ export async function login(input: {
   });
 
   if (!response.ok) {
+    const emailNotVerified = response.status === 403;
     const error: AppError = {
-      code: "LOGIN_FAILED",
+      code: emailNotVerified ? "EMAIL_NOT_VERIFIED" : "LOGIN_FAILED",
       message:
-        response.status === 401
-          ? "The email or password is incorrect."
-          : getSafeErrorMessage(response.status),
+        emailNotVerified
+          ? "Please verify your email before signing in."
+          : response.status === 401
+            ? "The email or password is incorrect."
+            : getSafeErrorMessage(response.status),
       status: response.status
     };
     throw error;
@@ -129,7 +136,7 @@ export async function requestEmailVerification(email: string): Promise<ActionRes
 export async function confirmEmailVerification(input: {
   email: string;
   code: string;
-}): Promise<{ user: ApiUser }> {
+}): Promise<AuthResult> {
   const response = await fetch(getApiUrl("/auth/email-verification/confirm"), {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -149,7 +156,7 @@ export async function confirmEmailVerification(input: {
     throw error;
   }
 
-  return response.json() as Promise<{ user: ApiUser }>;
+  return response.json() as Promise<AuthResult>;
 }
 
 export async function requestPasswordReset(email: string): Promise<ActionResponse> {

@@ -20,6 +20,7 @@ export const FloatInput = forwardRef<HTMLInputElement, FloatInputProps>(function
       <input
         ref={ref}
         id={id}
+        suppressHydrationWarning
         type={resolvedType}
         placeholder=" "
         className={`float-input${error ? " has-error" : ""}${showToggle ? " has-toggle" : ""} ${className}`}

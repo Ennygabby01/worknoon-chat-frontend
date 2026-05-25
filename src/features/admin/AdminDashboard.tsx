@@ -1,44 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { listAdminConversations } from "@/lib/api/conversations";
-import { listUsers } from "@/lib/api/users";
 import { Badge } from "@/components/ui/Badge";
-import { Spinner } from "@/components/ui/Spinner";
 import { Avatar } from "@/components/ui/Avatar";
 import type { ApiConversation, ApiUser, Pagination } from "@/types/api";
+import {
+  MOCK_USERS,
+  MOCK_USER_PAGINATION,
+  MOCK_CONVERSATIONS,
+  MOCK_CONVERSATION_PAGINATION,
+} from "./admin-mock";
 
 export function AdminDashboard() {
-  const [users, setUsers] = useState<ApiUser[]>([]);
-  const [userPagination, setUserPagination] = useState<Pagination | null>(null);
-  const [conversations, setConversations] = useState<ApiConversation[]>([]);
-  const [conversationPagination, setConversationPagination] = useState<Pagination | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
-
-  useEffect(() => {
-    Promise.all([listUsers({ limit: 50 }), listAdminConversations({ limit: 50 })])
-      .then(([{ users: u, pagination: userPage }, { conversations: c, pagination: convPage }]) => {
-        setUsers(u);
-        setUserPagination(userPage);
-        setConversations(c);
-        setConversationPagination(convPage);
-      })
-      .catch(() => setError("We could not load admin data."))
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="loading-screen">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
-
-  if (error) {
-    return <div className="error-banner">{error}</div>;
-  }
+  const users: ApiUser[] = MOCK_USERS;
+  const userPagination: Pagination = MOCK_USER_PAGINATION;
+  const conversations: ApiConversation[] = MOCK_CONVERSATIONS;
+  const conversationPagination: Pagination = MOCK_CONVERSATION_PAGINATION;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>

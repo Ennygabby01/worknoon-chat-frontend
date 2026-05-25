@@ -9,5 +9,6 @@ export const realtimeEvents = {
   messageSent: "message:sent",
   typingStart: "typing:start",
   typingStop: "typing:stop",
-  typingUpdate: "typing:update"
+  typingUpdate: "typing:update",
+  presenceUpdate: "presence:update"
 } as const;

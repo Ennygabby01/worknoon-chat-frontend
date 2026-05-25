@@ -10,6 +10,7 @@ import {
 } from "react";
 import {
   login as apiLogin,
+  confirmEmailVerification as apiConfirmEmailVerification,
   logout as apiLogout,
   refreshSession,
   register as apiRegister
@@ -23,6 +24,7 @@ type SessionContextValue = {
   session: AuthSession | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  confirmEmailVerification: (input: { email: string; code: string }) => Promise<void>;
   register: (input: {
     name: string;
     email: string;
@@ -71,6 +73,16 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setSession({ user: result.user, accessToken: result.accessToken });
   }, []);
 
+  const confirmEmailVerification = useCallback(
+    async (input: { email: string; code: string }) => {
+      const result = await apiConfirmEmailVerification(input);
+      setAccessToken(result.accessToken);
+      connectSocket(result.accessToken);
+      setSession({ user: result.user, accessToken: result.accessToken });
+    },
+    []
+  );
+
   const register = useCallback(
     async (input: {
       name: string;
@@ -78,10 +90,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       password: string;
       role: PublicRegistrationRole;
     }) => {
-      const result = await apiRegister(input);
-      setAccessToken(result.accessToken);
-      connectSocket(result.accessToken);
-      setSession({ user: result.user, accessToken: result.accessToken });
+      await apiRegister(input);
+      setAccessToken(null);
+      disconnectSocket();
+      setSession(null);
     },
     []
   );
@@ -93,7 +105,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <SessionContext.Provider value={{ session, loading, login, register, logout }}>
+    <SessionContext.Provider
+      value={{ session, loading, login, confirmEmailVerification, register, logout }}
+    >
       {children}
     </SessionContext.Provider>
   );

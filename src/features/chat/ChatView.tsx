@@ -7,9 +7,11 @@ import { listMessages, sendMessage } from "@/lib/api/messages";
 import { getSocket } from "@/lib/realtime/socket";
 import { realtimeEvents } from "@/lib/realtime/events";
 import { useSession } from "@/lib/session/session-context";
-import { useUserName } from "@/lib/users/user-cache-context";
+import { useUserName, useUserRole } from "@/lib/users/user-cache-context";
+import { usePresence } from "@/lib/realtime/online-status-context";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 import { Avatar } from "@/components/ui/Avatar";
-import { Badge } from "@/components/ui/Badge";
+import { Drawer } from "@/components/ui/Drawer";
 import { Spinner } from "@/components/ui/Spinner";
 import { MessageBubble } from "./MessageBubble";
 import { ChatComposer } from "./ChatComposer";
@@ -22,15 +24,31 @@ type ChatHeaderProps = {
   conversation: ApiConversation;
   currentUserId: string;
   onBack: () => void;
+  onNameClick: () => void;
+  detailOpen: boolean;
 };
 
-function ChatHeaderContent({ conversation, currentUserId, onBack }: ChatHeaderProps) {
+function ChatHeaderContent({
+  conversation,
+  currentUserId,
+  onBack,
+  onNameClick,
+  detailOpen,
+}: ChatHeaderProps) {
   const otherId =
     conversation.participants.find((p) => p.userId !== currentUserId)?.userId ??
     currentUserId;
   const otherName = useUserName(otherId);
+  const otherRole = useUserRole(otherId);
+  const presence = usePresence(otherId);
 
   const displayName = conversation.topic ?? otherName;
+  const roleLabel = otherRole
+    ? otherRole.charAt(0).toUpperCase() + otherRole.slice(1)
+    : conversation.type === "support"
+    ? "Support"
+    : "Direct";
+  const presenceLabel = presence.charAt(0).toUpperCase() + presence.slice(1);
 
   return (
     <div className="chat-header">
@@ -39,12 +57,122 @@ function ChatHeaderContent({ conversation, currentUserId, onBack }: ChatHeaderPr
       </button>
       <Avatar name={displayName} size="md" />
       <div className="chat-header-info">
-        <div className="chat-header-name">{displayName}</div>
+        <button
+          className="chat-header-name-btn"
+          onClick={onNameClick}
+          aria-expanded={detailOpen}
+          aria-label="View contact details"
+        >
+          {displayName}
+        </button>
         <div className="chat-header-sub">
-          <Badge label={conversation.type} variant="default" />
-          <span style={{ color: "var(--color-border)" }}>·</span>
-          <span>{conversation.participants.length} participants</span>
+          {roleLabel}
+          <span className={`presence-text presence-text--${presence}`}>{presenceLabel}</span>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ChatDetailContent({
+  conversation,
+  currentUserId,
+  onClose,
+}: {
+  conversation: ApiConversation;
+  currentUserId: string;
+  onClose: () => void;
+}) {
+  const otherId =
+    conversation.participants.find((p) => p.userId !== currentUserId)?.userId ??
+    currentUserId;
+  const otherName = useUserName(otherId);
+  const otherRole = useUserRole(otherId);
+
+  const displayName = conversation.topic ?? otherName;
+  const roleLabel = otherRole
+    ? otherRole.charAt(0).toUpperCase() + otherRole.slice(1)
+    : conversation.type === "support"
+    ? "Support"
+    : "Direct";
+
+  return (
+    <>
+      <div className="chat-detail-header">
+        <span className="chat-detail-title">Details</span>
+        <button className="chat-detail-close" onClick={onClose} aria-label="Close details">
+          <CloseIcon />
+        </button>
+      </div>
+
+      <div className="chat-detail-body">
+        <div className="chat-detail-profile">
+          <Avatar name={displayName} size="xl" />
+          <div className="chat-detail-name">{displayName}</div>
+          <div className="chat-detail-role">{roleLabel}</div>
+        </div>
+
+        <div className="chat-detail-section">
+          <div className="chat-detail-section-label">Conversation</div>
+          <div className="chat-detail-row">
+            <span className="chat-detail-row-label">Type</span>
+            <span className="chat-detail-row-value">
+              {conversation.type === "support" ? "Support" : "Direct message"}
+            </span>
+          </div>
+          {conversation.topic && (
+            <div className="chat-detail-row">
+              <span className="chat-detail-row-label">Topic</span>
+              <span className="chat-detail-row-value">{conversation.topic}</span>
+            </div>
+          )}
+          <div className="chat-detail-row">
+            <span className="chat-detail-row-label">Started</span>
+            <span className="chat-detail-row-value">
+              {new Date(conversation.createdAt).toLocaleDateString([], {
+                month: "short",
+                day: "numeric",
+                year: "numeric",
+              })}
+            </span>
+          </div>
+        </div>
+
+        <div className="chat-detail-section">
+          <div className="chat-detail-section-label">Participants</div>
+          {conversation.participants.map((p) => (
+            <ParticipantRow key={p.userId} userId={p.userId} currentUserId={currentUserId} />
+          ))}
+        </div>
+      </div>
+    </>
+  );
+}
+
+function ParticipantRow({
+  userId,
+  currentUserId,
+}: {
+  userId: string;
+  currentUserId: string;
+}) {
+  const name = useUserName(userId);
+  const role = useUserRole(userId);
+  return (
+    <div className="chat-detail-participant">
+      <Avatar name={name} size="sm" />
+      <div className="chat-detail-participant-info">
+        <span className="chat-detail-participant-name">
+          {name}
+          {userId === currentUserId && (
+            <span className="chat-detail-you-badge">you</span>
+          )}
+        </span>
+        {role && (
+          <span className="chat-detail-participant-role">
+            {role.charAt(0).toUpperCase() + role.slice(1)}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -75,6 +203,30 @@ function generateClientId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+function MessageBubbleWithName({
+  message,
+  isOwn,
+  showAvatar,
+  otherId,
+}: {
+  message: ApiMessage;
+  isOwn: boolean;
+  showAvatar: boolean;
+  otherId: string;
+}) {
+  const name = useUserName(message.senderId);
+  const seen = isOwn && message.readBy.includes(otherId);
+  return (
+    <MessageBubble
+      message={message}
+      isOwn={isOwn}
+      senderName={name}
+      showAvatar={showAvatar}
+      seen={seen}
+    />
+  );
+}
+
 type ChatViewProps = {
   conversationId: string;
 };
@@ -91,6 +243,8 @@ export function ChatView({ conversationId }: ChatViewProps) {
   const [error, setError] = useState("");
   const [typing, setTyping] = useState<TypingState>({});
   const [connected, setConnected] = useState(true);
+  const [detailOpen, setDetailOpen] = useState(false);
+  const isMobile = useMediaQuery("(max-width: 720px)");
 
   const threadRef = useRef<HTMLDivElement>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -103,18 +257,21 @@ export function ChatView({ conversationId }: ChatViewProps) {
   }, []);
 
   useEffect(() => {
-    Promise.all([getConversation(conversationId), listMessages(conversationId)])
+    Promise.all([
+      getConversation(conversationId, currentUserId),
+      listMessages(conversationId, undefined, currentUserId),
+    ])
       .then(([conv, msgs]) => {
         setConversation(conv);
         setMessages(msgs);
-        markConversationRead(conversationId).catch(() => {});
+        markConversationRead(conversationId, currentUserId).catch(() => {});
       })
       .catch(() => setError("We could not load this conversation."))
       .finally(() => {
         setLoadingConv(false);
         setLoadingMsgs(false);
       });
-  }, [conversationId]);
+  }, [conversationId, currentUserId]);
 
   useEffect(() => {
     scrollToBottom("instant");
@@ -134,7 +291,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
         if (prev.some((m) => m.id === payload.message.id)) return prev;
         return [...prev, payload.message];
       });
-      markConversationRead(conversationId).catch(() => {});
+      markConversationRead(conversationId, currentUserId).catch(() => {});
       setTimeout(() => scrollToBottom(), 50);
     }
 
@@ -183,7 +340,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
 
   async function handleSend(body: string) {
     const clientMessageId = generateClientId();
-    const message = await sendMessage(conversationId, { body, clientMessageId });
+    const message = await sendMessage(conversationId, { body, clientMessageId }, currentUserId);
     setMessages((prev) => {
       if (prev.some((m) => m.id === message.id)) return prev;
       return [...prev, message];
@@ -213,61 +370,85 @@ export function ChatView({ conversationId }: ChatViewProps) {
     );
   }
 
+  const otherId =
+    conversation.participants.find((p) => p.userId !== currentUserId)?.userId ?? "";
+
   const typingNames = Object.entries(typing)
     .filter(([, isTyping]) => isTyping)
     .map(([id]) => `User …${id.slice(-5)}`);
 
   return (
-    <div className="chat-area panel-active">
-      <ChatHeaderContent
-        conversation={conversation}
-        currentUserId={currentUserId}
-        onBack={() => router.push("/inbox")}
-      />
+    <div className={`chat-area panel-active${detailOpen ? " detail-open" : ""}`}>
+      <div className="chat-main">
+        <ChatHeaderContent
+          conversation={conversation}
+          currentUserId={currentUserId}
+          onBack={() => router.push("/inbox")}
+          onNameClick={() => setDetailOpen((o) => !o)}
+          detailOpen={detailOpen}
+        />
 
-      {!connected && (
-        <div className="connection-banner">
-          Reconnecting... Your messages will be delivered when connection is restored.
-        </div>
-      )}
-
-      <div className="message-thread" ref={threadRef}>
-        {messages.length === 0 && (
-          <div className="chat-empty" style={{ flex: "none", padding: "24px 0" }}>
-            <span>No messages yet. Start the conversation.</span>
+        {!connected && (
+          <div className="connection-banner">
+            Reconnecting... Your messages will be delivered when connection is restored.
           </div>
         )}
 
-        {messages.map((msg, idx) => {
-          const prev = messages[idx - 1];
-          const showDivider = !prev || !isSameDay(prev.createdAt, msg.createdAt);
-          const isOwn = msg.senderId === currentUserId;
-          const prevSameSender = prev?.senderId === msg.senderId;
-          const senderName = `User …${msg.senderId.slice(-5)}`;
-
-          return (
-            <div key={msg.id}>
-              {showDivider && (
-                <div className="message-date-divider">{formatDay(msg.createdAt)}</div>
-              )}
-              <MessageBubble
-                message={msg}
-                isOwn={isOwn}
-                senderName={senderName}
-                showAvatar={!isOwn && !prevSameSender}
-              />
+        <div className="message-thread" ref={threadRef}>
+          {messages.length === 0 && (
+            <div className="chat-empty" style={{ flex: "none", padding: "24px 0" }}>
+              <span>No messages yet. Start the conversation.</span>
             </div>
-          );
-        })}
+          )}
 
-        {typingNames.length > 0 && <TypingIndicator names={typingNames} />}
+          {messages.map((msg, idx) => {
+            const prev = messages[idx - 1];
+            const showDivider = !prev || !isSameDay(prev.createdAt, msg.createdAt);
+            const isOwn = msg.senderId === currentUserId;
+            const prevSameSender = prev?.senderId === msg.senderId;
+
+            return (
+              <div key={msg.id}>
+                {showDivider && (
+                  <div className="message-date-divider">{formatDay(msg.createdAt)}</div>
+                )}
+                <MessageBubbleWithName
+                  message={msg}
+                  isOwn={isOwn}
+                  showAvatar={!isOwn && !prevSameSender}
+                  otherId={otherId}
+                />
+              </div>
+            );
+          })}
+
+          {typingNames.length > 0 && <TypingIndicator names={typingNames} />}
+        </div>
+
+        <ChatComposer
+          onSend={handleSend}
+          onTyping={handleTyping}
+          disabled={!connected}
+        />
       </div>
 
-      <ChatComposer
-        onSend={handleSend}
-        onTyping={handleTyping}
-        disabled={!connected}
-      />
+      {detailOpen && !isMobile && (
+        <div className="chat-detail-panel">
+          <ChatDetailContent
+            conversation={conversation}
+            currentUserId={currentUserId}
+            onClose={() => setDetailOpen(false)}
+          />
+        </div>
+      )}
+
+      <Drawer open={detailOpen && isMobile} onClose={() => setDetailOpen(false)}>
+        <ChatDetailContent
+          conversation={conversation}
+          currentUserId={currentUserId}
+          onClose={() => setDetailOpen(false)}
+        />
+      </Drawer>
     </div>
   );
 }
@@ -285,6 +466,24 @@ function BackIcon() {
       strokeLinejoin="round"
     >
       <polyline points="15 18 9 12 15 6" />
+    </svg>
+  );
+}
+
+function CloseIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2.5"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <line x1="18" y1="6" x2="6" y2="18" />
+      <line x1="6" y1="6" x2="18" y2="18" />
     </svg>
   );
 }
