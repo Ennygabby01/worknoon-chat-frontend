@@ -1,5 +1,11 @@
 # Worknoon Chat Frontend
 
+![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js&logoColor=white)
+![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=111111)
+![TypeScript](https://img.shields.io/badge/TypeScript-Strict-3178C6?logo=typescript&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-4-06B6D4?logo=tailwindcss&logoColor=white)
+![Socket.IO](https://img.shields.io/badge/Socket.IO-Realtime-010101?logo=socket.io&logoColor=white)
+
 Next.js frontend for the Worknoon real-time chat assessment. It provides the authenticated chat workspace for customers, designers, merchants, agents, and admins.
 
 ## Technologies
@@ -112,11 +118,12 @@ The iframe receives:
 
 ## Challenges and Tradeoffs
 
-- The support bot initially created a conversation before an agent was assigned, which could leave the user in a self-chat. The final frontend calls the backend support endpoint so assignment and opening message creation happen together.
-- Mock data was removed late in the build, which required wiring admin, directory, orders, inbox, and support handoff screens to real backend APIs while preserving the UI.
-- Contact role labels in the chat header depended on preloading user metadata. A backend pagination limit mismatch blocked that cache until the shared limit was raised.
-- Admin login originally redirected to the inbox like every other role. The final route helper sends admins directly to the admin dashboard.
-- The interface favors a clean SaaS workspace over a marketing page so repeated chat/admin workflows stay practical.
+- The support bot originally handed off by creating a support conversation first and sending the message separately. That could leave the user in a self-chat. The frontend now calls the backend support endpoint with the opening message so assignment and conversation creation stay atomic from the UI's perspective.
+- Mock data was useful for building the UI quickly, but it became a delivery risk. I removed the mock mode and wired admin, directory, orders, inbox, and support handoff screens to real backend APIs so the demo reflects the actual system.
+- Chat header role labels depended on a contact cache. A backend pagination cap caused that preload to fail silently, so the UI could show names without roles. The fix was coordinated with the backend and the frontend now relies on the real contact cache.
+- Admin users originally landed in the inbox after login because all roles shared one redirect. A role-aware route helper now sends admins to `/secure-end/Admin` and keeps other users on `/inbox`.
+- The UI had to balance a polished Dribbble-inspired look with assessment time. I prioritized the core chat, admin, agent, directory, order, and WordPress embed flows over extras like dark mode, file uploads, and push notifications.
+- Token refresh is handled as a single-flight request so concurrent API failures do not spam refresh calls or cause avoidable logout behavior.
 
 ## Validation
 
