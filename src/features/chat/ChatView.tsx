@@ -42,7 +42,9 @@ function ChatHeaderContent({
   const otherRole = useUserRole(otherId);
   const presence = usePresence(otherId);
 
-  const displayName = waitingForAgent ? "Worknoon Support" : conversation.topic ?? otherName;
+  const displayName = waitingForAgent
+    ? "Worknoon Support"
+    : otherName || conversation.topic || "Participant";
   const roleLabel = otherRole
     ? otherRole.charAt(0).toUpperCase() + otherRole.slice(1)
     : conversation.type === "support"
@@ -57,7 +59,12 @@ function ChatHeaderContent({
       <button className="chat-header-back" onClick={onBack} aria-label="Back to inbox">
         <BackIcon />
       </button>
-      <Avatar name={displayName} size="md" />
+      <div className="avatar-wrap">
+        <Avatar name={displayName} size="md" />
+        {!waitingForAgent && presence !== "offline" && (
+          <span className={`online-dot online-dot--${presence}`} aria-label={presence} />
+        )}
+      </div>
       <div className="chat-header-info">
         <button
           className="chat-header-name-btn"
@@ -93,7 +100,7 @@ function ChatDetailContent({
   const otherName = useUserName(otherId);
   const otherRole = useUserRole(otherId);
 
-  const displayName = conversation.topic ?? otherName;
+  const displayName = otherName || conversation.topic || "Participant";
   const roleLabel = otherRole
     ? otherRole.charAt(0).toUpperCase() + otherRole.slice(1)
     : conversation.type === "support"
@@ -218,8 +225,9 @@ function MessageBubbleWithName({
   showAvatar: boolean;
   otherId: string;
 }) {
-  const name = useUserName(message.senderId);
-  const seen = isOwn && message.readBy.includes(otherId);
+  const cachedName = useUserName(message.senderId);
+  const name = message.senderName || cachedName;
+  const seen = isOwn && otherId ? message.readBy.includes(otherId) : false;
   return (
     <MessageBubble
       message={message}
@@ -299,6 +307,11 @@ export function ChatView({ conversationId }: ChatViewProps) {
       setTimeout(() => scrollToBottom(), 50);
     }
 
+    function handleConversationUpdate(payload: { conversation: ApiConversation }) {
+      if (payload.conversation.id !== conversationId) return;
+      setConversation(payload.conversation);
+    }
+
     function handleTypingUpdate(payload: {
       conversationId: string;
       userId: string;
@@ -319,12 +332,14 @@ export function ChatView({ conversationId }: ChatViewProps) {
     }
 
     socket.on(realtimeEvents.messageNew, handleMessageNew);
+    socket.on(realtimeEvents.conversationUpdate, handleConversationUpdate);
     socket.on(realtimeEvents.typingUpdate, handleTypingUpdate);
     socket.on("disconnect", handleDisconnect);
     socket.on("connect", handleConnect);
 
     return () => {
       socket.off(realtimeEvents.messageNew, handleMessageNew);
+      socket.off(realtimeEvents.conversationUpdate, handleConversationUpdate);
       socket.off(realtimeEvents.typingUpdate, handleTypingUpdate);
       socket.off("disconnect", handleDisconnect);
       socket.off("connect", handleConnect);
@@ -376,6 +391,8 @@ export function ChatView({ conversationId }: ChatViewProps) {
 
   const otherId =
     conversation.participants.find((p) => p.userId !== currentUserId)?.userId ?? "";
+  const waitingForAgent = conversation.type === "support" && conversation.status === "escalated";
+  const composerDisabled = !connected || waitingForAgent;
 
   const typingNames = Object.entries(typing)
     .filter(([, isTyping]) => isTyping)
@@ -398,6 +415,12 @@ export function ChatView({ conversationId }: ChatViewProps) {
           </div>
         )}
 
+        {waitingForAgent && (
+          <div className="connection-banner connection-banner-waiting">
+            Connecting you to a human agent...
+          </div>
+        )}
+
         <div className="message-thread" ref={threadRef}>
           {messages.length === 0 && (
             <div className="chat-empty" style={{ flex: "none", padding: "24px 0" }}>
@@ -408,8 +431,9 @@ export function ChatView({ conversationId }: ChatViewProps) {
           {messages.map((msg, idx) => {
             const prev = messages[idx - 1];
             const showDivider = !prev || !isSameDay(prev.createdAt, msg.createdAt);
-            const isOwn = msg.senderId === currentUserId;
-            const prevSameSender = prev?.senderId === msg.senderId;
+            const isOwn = msg.senderKind !== "assistant" && msg.senderId === currentUserId;
+            const prevSameSender =
+              prev?.senderId === msg.senderId && prev?.senderKind === msg.senderKind;
 
             return (
               <div key={msg.id}>
@@ -432,7 +456,7 @@ export function ChatView({ conversationId }: ChatViewProps) {
         <ChatComposer
           onSend={handleSend}
           onTyping={handleTyping}
-          disabled={!connected}
+          disabled={composerDisabled}
         />
       </div>
 

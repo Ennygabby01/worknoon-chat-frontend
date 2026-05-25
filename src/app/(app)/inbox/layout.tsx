@@ -140,6 +140,7 @@ export default function InboxLayout({ children }: { children: React.ReactNode })
 
       <NewConversationDrawer
         open={drawerOpen}
+        currentRole={role}
         onClose={() => setDrawerOpen(false)}
         onSelect={handleSelect}
       />

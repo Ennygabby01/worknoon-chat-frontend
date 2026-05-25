@@ -6,6 +6,8 @@ import { Spinner } from "@/components/ui/Spinner";
 import { Button } from "@/components/ui/Button";
 import { useRequireRole } from "@/lib/hooks/useRequireRole";
 import { getAgentQueue, claimConversation } from "@/lib/api/agent";
+import { getSocket } from "@/lib/realtime/socket";
+import { realtimeEvents } from "@/lib/realtime/events";
 import type { ApiConversation } from "@/types/api";
 import type { AppError } from "@/lib/api/app-error";
 
@@ -24,6 +26,24 @@ export function AgentQueuePage() {
       .then(setQueue)
       .catch(() => setError("Could not load queue."))
       .finally(() => setLoading(false));
+  }, [session]);
+
+  useEffect(() => {
+    if (!session) return;
+    const socket = getSocket();
+
+    function handleConversationNew(payload: { conversation: ApiConversation }) {
+      if (payload.conversation.status !== "escalated") return;
+      setQueue((prev) => {
+        if (prev.some((conv) => conv.id === payload.conversation.id)) return prev;
+        return [payload.conversation, ...prev];
+      });
+    }
+
+    socket.on(realtimeEvents.conversationNew, handleConversationNew);
+    return () => {
+      socket.off(realtimeEvents.conversationNew, handleConversationNew);
+    };
   }, [session]);
 
   async function handleClaim(conv: ApiConversation) {

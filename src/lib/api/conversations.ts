@@ -19,8 +19,9 @@ export async function createConversation(input: {
 }
 
 export async function createSupportConversation(input: {
-  openingMessage: string;
+  openingMessage?: string;
   clientMessageId: string;
+  transcript?: { role: "bot" | "user"; text: string; timestamp?: string }[];
   topic?: string;
   productContext?: { productId?: string; productName?: string };
 }): Promise<ApiConversation> {

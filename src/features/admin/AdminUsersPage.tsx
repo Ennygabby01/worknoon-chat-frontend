@@ -207,10 +207,6 @@ export function AdminUsersPage() {
       .finally(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    setVisible(PAGE_SIZE);
-  }, [search, roleFilter]);
-
   async function handleRoleChange(userId: string, role: UserRole) {
     const updated = await adminUpdateUser(userId, { role });
     setUsers((prev) => prev.map((u) => (u.id === userId ? updated : u)));
@@ -246,10 +242,19 @@ export function AdminUsersPage() {
             type="search"
             placeholder="Search by name or email..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setVisible(PAGE_SIZE);
+            }}
           />
         </div>
-        <RoleFilterDropdown value={roleFilter} onChange={setRoleFilter} />
+        <RoleFilterDropdown
+          value={roleFilter}
+          onChange={(role) => {
+            setRoleFilter(role);
+            setVisible(PAGE_SIZE);
+          }}
+        />
         <span className="admin-table-count">{filtered.length} users</span>
       </div>
 

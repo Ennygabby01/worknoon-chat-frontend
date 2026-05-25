@@ -106,10 +106,6 @@ export function AdminAgentsPage() {
       .finally(() => setLoading(false));
   }, [session]);
 
-  useEffect(() => {
-    setVisible(PAGE_SIZE);
-  }, [search]);
-
   async function handleDeactivate(agent: ApiUser) {
     const updated = await adminUpdateUser(agent.id, { banned: !agent.banned });
     setAgents((prev) => prev.map((a) => (a.id === agent.id ? updated : a)));
@@ -164,7 +160,10 @@ export function AdminAgentsPage() {
             type="search"
             placeholder="Search by name or email..."
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setVisible(PAGE_SIZE);
+            }}
           />
         </div>
         <span className="admin-table-count">{filtered.length} agents</span>

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Avatar } from "@/components/ui/Avatar";
-import { createSupportConversation } from "@/lib/api/conversations";
+import { createSupportConversation, getConversation } from "@/lib/api/conversations";
 import { BotThread } from "./BotThread";
 import { BotChoiceBar } from "./BotChoiceBar";
 import { BotComposer } from "./BotComposer";
@@ -26,7 +26,9 @@ export function SupportBotView({ onClose }: SupportBotViewProps) {
   const [stepId, setStepId] = useState("start");
   const [history, setHistory] = useState<BotHistoryItem[]>([]);
   const [botTyping, setBotTyping] = useState(false);
+  const [handoffError, setHandoffError] = useState("");
   const initialized = useRef(false);
+  const handoffStarted = useRef(false);
   const autoHandoffTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function appendBot(text: string) {
@@ -90,16 +92,33 @@ export function SupportBotView({ onClose }: SupportBotViewProps) {
     router.push("/marketplace");
   }
 
-  async function handleHandoffSend(message: string) {
-    const conversation = await createSupportConversation(
-      { openingMessage: message, clientMessageId: clientId(), topic: "Support request" }
-    );
-    onClose();
-    router.push(`/inbox/${conversation.id}`);
-  }
-
   const currentStep = BOT_SCRIPT[stepId];
   const expectsText = !!(currentStep && !currentStep.choices && !currentStep.autoHandoff);
+
+  useEffect(() => {
+    if (phase !== "handoff" || handoffStarted.current || history.length === 0) return;
+    handoffStarted.current = true;
+    setHandoffError("");
+
+    createSupportConversation({
+      transcript: history.map((item) => ({
+        role: item.role,
+        text: item.text,
+        timestamp: item.timestamp
+      })),
+      clientMessageId: clientId(),
+      topic: "Support request"
+    })
+      .then(async (conversation) => {
+        await getConversation(conversation.id);
+        onClose();
+        router.push(`/inbox/${conversation.id}`);
+      })
+      .catch(() => {
+        handoffStarted.current = false;
+        setHandoffError("We could not connect you. Please try again.");
+      });
+  }, [history, onClose, phase, router]);
 
   return (
     <div className="chat-area panel-active">
@@ -114,6 +133,7 @@ export function SupportBotView({ onClose }: SupportBotViewProps) {
               Worknoon Support
             </span>
             <div className="chat-header-sub">
+              <span>Support</span>
               <span className="presence-text presence-text--online">Assistant</span>
             </div>
           </div>
@@ -144,7 +164,7 @@ export function SupportBotView({ onClose }: SupportBotViewProps) {
             />
           )}
           {phase === "handoff" && (
-            <AgentHandoffPanel onSend={handleHandoffSend} />
+            <AgentHandoffPanel error={handoffError} />
           )}
         </div>
       </div>

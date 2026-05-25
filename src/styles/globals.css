@@ -454,6 +454,27 @@ nextjs-portal {
   min-width: 0;
 }
 
+.conversation-claim-btn {
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999px;
+  background: var(--color-accent);
+  color: #fff;
+  cursor: pointer;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 6px 10px;
+}
+
+.conversation-claim-btn:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.conversation-list-error {
+  margin: 8px 10px;
+}
+
 .conversation-row-typing {
   font-size: 0.8rem;
   color: var(--color-accent);
@@ -936,6 +957,18 @@ nextjs-portal {
   line-height: 1.4;
 }
 
+.handoff-waiting {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--color-page);
+  color: var(--color-muted);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
 .handoff-form {
   display: flex;
   flex-direction: column;
@@ -1395,6 +1428,14 @@ nextjs-portal {
 
 .message-row.own .message-content {
   align-items: flex-end;
+}
+
+.message-sender-name {
+  color: var(--color-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-left: 2px;
 }
 
 .bubble-body {

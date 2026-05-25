@@ -43,6 +43,8 @@ export type ApiMessage = {
   id: string;
   conversationId: string;
   senderId: string;
+  senderKind: "user" | "assistant";
+  senderName: string | null;
   body: string;
   clientMessageId: string;
   readBy: string[];

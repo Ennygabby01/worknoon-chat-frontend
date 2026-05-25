@@ -55,6 +55,7 @@ make dev
 make lint
 make typecheck
 make build
+make start
 ```
 
 ## Demo Login
@@ -104,6 +105,7 @@ The frontend is organized by product feature and keeps backend communication iso
 - Refresh uses the backend-managed `httpOnly` cookie.
 - Token refresh is single-flight so concurrent `401` responses share one refresh request.
 - Socket.IO authenticates with the current access token and joins conversation rooms as needed.
+- The inbox listens for realtime new/updated conversations and joins newly received rooms, so direct chats and support handoffs do not require a refresh.
 - User message content is rendered as plain text only.
 
 ## WordPress Embed Notes
@@ -118,7 +120,8 @@ The iframe receives:
 
 ## Challenges and Tradeoffs
 
-- The support bot originally handed off by creating a support conversation first and sending the message separately. That could leave the user in a self-chat. The frontend now calls the backend support endpoint with the opening message so assignment and conversation creation stay atomic from the UI's perspective.
+- The support bot originally handed off with a packed context message and could leave agents without the actual prior chat. The frontend now sends the bot/customer transcript to the backend as structured messages, shows a waiting state, and unlocks the customer composer only after an agent claims the case.
+- Agents can see escalated support requests in the inbox list and take them from there. If another agent claims first, the UI removes the stale queue item and shows a safe conflict message.
 - Mock data was useful for building the UI quickly, but it became a delivery risk. I removed the mock mode and wired admin, directory, orders, inbox, and support handoff screens to real backend APIs so the demo reflects the actual system.
 - Chat header role labels depended on a contact cache. A backend pagination cap caused that preload to fail silently, so the UI could show names without roles. The fix was coordinated with the backend and the frontend now relies on the real contact cache.
 - Admin users originally landed in the inbox after login because all roles shared one redirect. A role-aware route helper now sends admins to `/secure-end/Admin` and keeps other users on `/inbox`.
@@ -130,4 +133,5 @@ The iframe receives:
 ```bash
 npm run typecheck
 npm run lint
+npm run build
 ```

@@ -2,16 +2,18 @@
 
 import { createPortal } from "react-dom";
 import { ConversationTypeCard } from "./ConversationTypeCard";
+import type { UserRole } from "@/types/api";
 
 export type ConversationEntry = "support" | "browse-designer" | "browse-merchant";
 
 type NewConversationDrawerProps = {
   open: boolean;
+  currentRole?: UserRole;
   onClose: () => void;
   onSelect: (entry: ConversationEntry) => void;
 };
 
-export function NewConversationDrawer({ open, onClose, onSelect }: NewConversationDrawerProps) {
+export function NewConversationDrawer({ open, currentRole, onClose, onSelect }: NewConversationDrawerProps) {
   if (!open) return null;
 
   function select(entry: ConversationEntry) {
@@ -38,12 +40,14 @@ export function NewConversationDrawer({ open, onClose, onSelect }: NewConversati
         </div>
 
         <div className="nc-type-grid">
-          <ConversationTypeCard
-            icon={<SupportIcon />}
-            label="Support"
-            description="Talk to our support team or assistant"
-            onClick={() => select("support")}
-          />
+          {currentRole !== "agent" && (
+            <ConversationTypeCard
+              icon={<SupportIcon />}
+              label="Support"
+              description="Talk to our support team or assistant"
+              onClick={() => select("support")}
+            />
+          )}
           <ConversationTypeCard
             icon={<DesignerIcon />}
             label="Designer"

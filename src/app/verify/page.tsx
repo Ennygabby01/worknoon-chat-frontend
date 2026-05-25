@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { requestEmailVerification } from "@/lib/api/auth";
 import { OtpInput } from "@/components/ui/OtpInput";
 import { Button } from "@/components/ui/Button";
+import { Spinner } from "@/components/ui/Spinner";
 import { BrandPanel } from "@/features/auth/BrandPanel";
 import { useSession } from "@/lib/session/session-context";
 import type { AppError } from "@/lib/api/app-error";
@@ -34,6 +35,14 @@ function startVerificationCooldown(email: string) {
 }
 
 export default function VerifyPage() {
+  return (
+    <Suspense fallback={<div className="loading-screen"><Spinner size="lg" /></div>}>
+      <VerifyContent />
+    </Suspense>
+  );
+}
+
+function VerifyContent() {
   const router = useRouter();
   const { confirmEmailVerification } = useSession();
   const params = useSearchParams();

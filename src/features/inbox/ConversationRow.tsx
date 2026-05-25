@@ -11,6 +11,9 @@ type ConversationRowProps = {
   otherName: string;
   isTyping?: boolean;
   presence?: PresenceStatus;
+  canClaim?: boolean;
+  claiming?: boolean;
+  onClaim?: () => void;
 };
 
 function formatRelativeTime(iso: string): string {
@@ -37,8 +40,8 @@ function isUnread(conversation: ApiConversation, userId: string): boolean {
 }
 
 function displayName(conversation: ApiConversation, otherName: string): string {
+  if (conversation.type === "support") return otherName || conversation.topic || "Support request";
   if (conversation.topic) return conversation.topic;
-  if (conversation.type === "support") return "Support request";
   return otherName;
 }
 
@@ -50,16 +53,16 @@ export function ConversationRow({
   otherName,
   isTyping = false,
   presence = "offline",
+  canClaim = false,
+  claiming = false,
+  onClaim,
 }: ConversationRowProps) {
   const unread = isUnread(conversation, currentUserId);
   const name = displayName(conversation, otherName);
   const timestamp = conversation.lastMessageAt ?? conversation.createdAt;
 
-  return (
-    <Link
-      href={`/inbox/${conversation.id}`}
-      className={`conversation-row${isActive ? " is-active" : ""}${unread ? " is-unread" : ""}`}
-    >
+  const content = (
+    <>
       <div className="avatar-wrap">
         <Avatar name={name} size="md" />
         {presence !== "offline" && (
@@ -85,6 +88,38 @@ export function ConversationRow({
           {unread && <span className="unread-badge" aria-label="Unread" />}
         </div>
       </div>
+      {canClaim && (
+        <button
+          type="button"
+          className="conversation-claim-btn"
+          disabled={claiming}
+          onClick={(event) => {
+            event.stopPropagation();
+            onClaim?.();
+          }}
+        >
+          {claiming ? "Taking..." : "Take"}
+        </button>
+      )}
+    </>
+  );
+
+  if (canClaim) {
+    return (
+      <div
+        className={`conversation-row${isActive ? " is-active" : ""}${unread ? " is-unread" : ""}`}
+      >
+        {content}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={`/inbox/${conversation.id}`}
+      className={`conversation-row${isActive ? " is-active" : ""}${unread ? " is-unread" : ""}`}
+    >
+      {content}
     </Link>
   );
 }

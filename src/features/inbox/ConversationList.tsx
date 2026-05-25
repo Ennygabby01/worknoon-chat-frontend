@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { listConversations } from "@/lib/api/conversations";
+import { claimConversation } from "@/lib/api/agent";
 import { getSocket } from "@/lib/realtime/socket";
 import { realtimeEvents } from "@/lib/realtime/events";
 import { useSession } from "@/lib/session/session-context";
@@ -15,21 +16,27 @@ import type { ApiConversation, ApiMessage } from "@/types/api";
 type ConversationListInnerProps = {
   conversations: ApiConversation[];
   currentUserId: string;
+  currentRole: string;
   activePath: string;
   typingConvs: Set<string>;
+  claimingId: string | null;
+  onClaim: (conversation: ApiConversation) => void;
 };
 
 function ConversationListInner({
   conversations,
   currentUserId,
+  currentRole,
   activePath,
   typingConvs,
+  claimingId,
+  onClaim,
 }: ConversationListInnerProps) {
   return (
     <>
       {conversations.map((conv) => {
         const otherId =
-          conv.participants.find((p) => p.userId !== currentUserId)?.userId ?? currentUserId;
+          conv.participants.find((p) => p.userId !== currentUserId)?.userId ?? "";
         return (
           <ConversationRowWithMeta
             key={conv.id}
@@ -38,6 +45,14 @@ function ConversationListInner({
             isActive={activePath === `/inbox/${conv.id}`}
             otherId={otherId}
             isTyping={typingConvs.has(conv.id)}
+            canClaim={
+              currentRole === "agent" &&
+              conv.type === "support" &&
+              conv.status === "escalated" &&
+              !conv.participants.some((p) => p.userId === currentUserId)
+            }
+            claiming={claimingId === conv.id}
+            onClaim={() => onClaim(conv)}
           />
         );
       })}
@@ -51,12 +66,18 @@ function ConversationRowWithMeta({
   isActive,
   otherId,
   isTyping,
+  canClaim,
+  claiming,
+  onClaim,
 }: {
   conversation: ApiConversation;
   currentUserId: string;
   isActive: boolean;
   otherId: string;
   isTyping: boolean;
+  canClaim: boolean;
+  claiming: boolean;
+  onClaim: () => void;
 }) {
   const name = useUserName(otherId);
   const presence = usePresence(otherId);
@@ -68,6 +89,9 @@ function ConversationRowWithMeta({
       otherName={name}
       isTyping={isTyping}
       presence={presence}
+      canClaim={canClaim}
+      claiming={claiming}
+      onClaim={onClaim}
     />
   );
 }
@@ -86,12 +110,16 @@ export function ConversationList({
 }) {
   const { session } = useSession();
   const pathname = usePathname();
+  const router = useRouter();
   const [conversations, setConversations] = useState<ApiConversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [typingConvs, setTypingConvs] = useState<Set<string>>(new Set());
+  const [claimingId, setClaimingId] = useState<string | null>(null);
+  const [claimError, setClaimError] = useState("");
   const joinedRooms = useRef<Set<string>>(new Set());
 
   const currentUserId = session!.user.id;
+  const currentRole = session!.user.role;
 
   useEffect(() => {
     listConversations()
@@ -124,6 +152,27 @@ export function ConversationList({
       });
     }
 
+    function handleConversationNew(payload: { conversation: ApiConversation }) {
+      if (!joinedRooms.current.has(payload.conversation.id)) {
+        socket.emit(realtimeEvents.conversationJoin, { conversationId: payload.conversation.id });
+        joinedRooms.current.add(payload.conversation.id);
+      }
+      setConversations((prev) => {
+        if (prev.some((conv) => conv.id === payload.conversation.id)) return prev;
+        return [payload.conversation, ...prev];
+      });
+    }
+
+    function handleConversationUpdate(payload: { conversation: ApiConversation }) {
+      setConversations((prev) => {
+        const idx = prev.findIndex((conv) => conv.id === payload.conversation.id);
+        if (idx === -1) return prev;
+        const next = [...prev];
+        next[idx] = payload.conversation;
+        return next;
+      });
+    }
+
     function handleTypingUpdate(payload: {
       conversationId: string;
       userId: string;
@@ -142,12 +191,34 @@ export function ConversationList({
     }
 
     socket.on(realtimeEvents.messageNew, handleMessageNew);
+    socket.on(realtimeEvents.conversationNew, handleConversationNew);
+    socket.on(realtimeEvents.conversationUpdate, handleConversationUpdate);
     socket.on(realtimeEvents.typingUpdate, handleTypingUpdate);
     return () => {
       socket.off(realtimeEvents.messageNew, handleMessageNew);
+      socket.off(realtimeEvents.conversationNew, handleConversationNew);
+      socket.off(realtimeEvents.conversationUpdate, handleConversationUpdate);
       socket.off(realtimeEvents.typingUpdate, handleTypingUpdate);
     };
   }, [currentUserId]);
+
+  async function handleClaim(conversation: ApiConversation) {
+    if (claimingId) return;
+    setClaimError("");
+    setClaimingId(conversation.id);
+    try {
+      const claimed = await claimConversation(conversation.id);
+      setConversations((prev) =>
+        prev.map((conv) => (conv.id === claimed.id ? claimed : conv))
+      );
+      router.push(`/inbox/${claimed.id}`);
+    } catch {
+      setClaimError("That conversation was already taken by another agent.");
+      setConversations((prev) => prev.filter((conv) => conv.id !== conversation.id));
+    } finally {
+      setClaimingId(null);
+    }
+  }
 
   if (loading) {
     return (
@@ -201,11 +272,17 @@ export function ConversationList({
   }
 
   return (
-    <ConversationListInner
-      conversations={visibleConversations}
-      currentUserId={currentUserId}
-      activePath={pathname}
-      typingConvs={typingConvs}
-    />
+    <>
+      {claimError && <div className="error-banner conversation-list-error">{claimError}</div>}
+      <ConversationListInner
+        conversations={visibleConversations}
+        currentUserId={currentUserId}
+        currentRole={currentRole}
+        activePath={pathname}
+        typingConvs={typingConvs}
+        claimingId={claimingId}
+        onClaim={(conversation) => void handleClaim(conversation)}
+      />
+    </>
   );
 }

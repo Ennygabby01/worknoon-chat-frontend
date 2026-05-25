@@ -10,6 +10,8 @@ help:
 	@echo "  make lint       Run ESLint"
 	@echo "  make typecheck  Run TypeScript typecheck"
 	@echo "  make build      Build production Next.js app"
+	@echo "  make start      Run built production app"
+	@echo "  make frontend-start Alias for make start"
 
 .PHONY: install
 install:
@@ -34,3 +36,10 @@ typecheck:
 .PHONY: build
 build:
 	npm run build
+
+.PHONY: start
+start:
+	npm run start
+
+.PHONY: frontend-start
+frontend-start: start

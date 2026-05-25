@@ -14,14 +14,19 @@ function formatTime(iso: string): string {
 }
 
 export function MessageBubble({ message, isOwn, senderName, showAvatar, seen }: MessageBubbleProps) {
+  const label = message.senderName || senderName || "Participant";
+
   return (
     <div className={`message-row ${isOwn ? "own" : "other"}${showAvatar ? " new-sender" : ""}`}>
       {!isOwn && (
         <div style={{ width: 30, flexShrink: 0 }}>
-          {showAvatar && <Avatar name={senderName} size="sm" />}
+          {showAvatar && <Avatar name={label} size="sm" />}
         </div>
       )}
       <div className="message-content">
+        {showAvatar && !isOwn && (
+          <span className="message-sender-name">{label}</span>
+        )}
         <div className="message-bubble">
           <span className="bubble-body">{message.body}</span>
           <span className="bubble-time">{formatTime(message.createdAt)}</span>

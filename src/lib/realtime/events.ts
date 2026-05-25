@@ -5,11 +5,13 @@ export const realtimeEvents = {
   conversationLeave: "conversation:leave",
   conversationJoined: "conversation:joined",
   conversationNew: "conversation:new",
+  conversationUpdate: "conversation:update",
   messageSend: "message:send",
   messageNew: "message:new",
   messageSent: "message:sent",
   typingStart: "typing:start",
   typingStop: "typing:stop",
   typingUpdate: "typing:update",
+  presenceRequest: "presence:request",
   presenceUpdate: "presence:update"
 } as const;

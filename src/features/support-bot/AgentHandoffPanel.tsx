@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { listChatContacts } from "@/lib/api/users";
 import { useIsOnline } from "@/lib/realtime/online-status-context";
+import { Spinner } from "@/components/ui/Spinner";
 import type { ApiUser } from "@/types/api";
 
 type AgentHandoffPanelProps = {
-  onSend: (message: string) => Promise<void>;
+  error?: string;
 };
 
 function AgentPileItem({ name, userId }: { name: string; userId: string }) {
@@ -20,10 +21,7 @@ function AgentPileItem({ name, userId }: { name: string; userId: string }) {
   );
 }
 
-export function AgentHandoffPanel({ onSend }: AgentHandoffPanelProps) {
-  const [message, setMessage] = useState("");
-  const [sending, setSending] = useState(false);
-  const [error, setError] = useState("");
+export function AgentHandoffPanel({ error }: AgentHandoffPanelProps) {
   const [agents, setAgents] = useState<ApiUser[]>([]);
 
   useEffect(() => {
@@ -31,20 +29,6 @@ export function AgentHandoffPanel({ onSend }: AgentHandoffPanelProps) {
       .then(({ users }) => setAgents(users))
       .catch(() => setAgents([]));
   }, []);
-
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const trimmed = message.trim();
-    if (!trimmed || sending) return;
-    setSending(true);
-    setError("");
-    try {
-      await onSend(trimmed);
-    } catch {
-      setError("We could not connect you. Please try again.");
-      setSending(false);
-    }
-  }
 
   return (
     <div className="handoff-panel">
@@ -64,23 +48,10 @@ export function AgentHandoffPanel({ onSend }: AgentHandoffPanelProps) {
 
       {error && <div className="error-banner" style={{ margin: "0 0 12px" }}>{error}</div>}
 
-      <form className="handoff-form" onSubmit={handleSubmit}>
-        <textarea
-          className="handoff-textarea"
-          placeholder="Describe your issue to get started..."
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          rows={3}
-          disabled={sending}
-        />
-        <button
-          type="submit"
-          className="handoff-submit"
-          disabled={sending || !message.trim()}
-        >
-          {sending ? "Connecting..." : "Send and connect"}
-        </button>
-      </form>
+      <div className="handoff-waiting" aria-live="polite">
+        <Spinner />
+        <span>Waiting for a human agent to take over...</span>
+      </div>
     </div>
   );
 }

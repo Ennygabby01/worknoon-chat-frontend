@@ -23,9 +23,17 @@ export function OnlineStatusProvider({ children }: { children: ReactNode }) {
       });
     }
 
+    function requestPresence() {
+      socket.emit(realtimeEvents.presenceRequest);
+    }
+
     socket.on(realtimeEvents.presenceUpdate, handlePresence);
+    requestPresence();
+    socket.on("connect", requestPresence);
+
     return () => {
       socket.off(realtimeEvents.presenceUpdate, handlePresence);
+      socket.off("connect", requestPresence);
     };
   }, []);
 
